@@ -42,14 +42,9 @@ public class UnlockMechanism {
 
         Random rd = new Random();
         String mode = "USER_MODE";
-        byte[] arr = new byte[16];
-        rd.nextBytes(arr);
-        String encoded16 = RandomNumberGenerator.generateRandomNumber();
-
-        String[] randomArray = new String[encoded16.length()];
-        for (int i = 0; i < encoded16.length(); i++) {
-            randomArray[i] = String.valueOf(encoded16.charAt(i));
-        }
+//        byte[] arr = new byte[16];
+//        rd.nextBytes(arr);
+        String encoded16 = RandomNumberGenerator.generateRandomNumber(new StringBuilder("16"));
 
         switch (mode) {
             case "USER_MODE" -> {
@@ -58,32 +53,8 @@ public class UnlockMechanism {
                 rtuResponse = rtuResponse.substring(191);
                 rtuResponse = rtuResponse.substring(7);
 
-                StringBuilder decoded = new StringBuilder();
-                for (int i = 0; i < rtuResponse.length(); i++) {
-                    char c = rtuResponse.charAt(i);
-                    // Initialize the index to -1 (indicating not found)
-                    String index;
-                    for (int j = 0; j < randomArray.length; j++) {
+               String decoded =  DecodingUtility.decodeRtuFromSerialPort(rtuResponse,encoded16);
 
-                        if (randomArray[j].equals(String.valueOf(c))) {
-                            if (j == 10)
-                                index = "A";
-                            else if (j == 11)
-                                index = "B";
-                            else if (j == 12)
-                                index = "C";
-                            else if (j == 13)
-                                index = "D";
-                            else if (j == 14)
-                                index = "E";
-                            else if (j == 15)
-                                index = "F";
-                            else index = String.valueOf(j);
-                            decoded.append(index);
-                            break;  // Exit the loop if the character is found in randomArray
-                        }
-                    }
-                }
                 System.out.println("Decoded" + decoded);
                 String deviceId = decoded.substring(0, 32).toLowerCase();
                 String microControllerId = decoded.substring(32, 56).toLowerCase();
@@ -146,9 +117,7 @@ public class UnlockMechanism {
                     String temp = "ACK_HAS" + generatedHashValue;
                     System.out.println(temp);
                 }
-                arr = new byte[12];
-                rd.nextBytes(arr);
-                String encoded12 = Base64.getUrlEncoder().encodeToString(arr);
+                String encoded12 = RandomNumberGenerator.generateRandomNumber(new StringBuilder("12"));
                 sendCommandToSerialPort("SET_ATM" + encoded12);
                 long currentTimeStamp = System.currentTimeMillis();
                 String atmAcknowledgment = getCommandFromSerialPort("GET_ATM" + currentTimeStamp);
@@ -163,9 +132,6 @@ public class UnlockMechanism {
                 String microControllerUniqueId = getCommandFromSerialPort("GET_MID");
 
                 System.out.println("Micro Controller Unique Id ---->" + microControllerUniqueId);
-
-                arr = new byte[16];
-                rd.nextBytes(arr);
 
                 String rtuValue = getCommandFromSerialPort("RTU" + encoded16);
 

@@ -7,14 +7,9 @@ import java.util.Set;
 public class RandomNumberGenerator {
     private static final String CHARACTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-    public static void main(String[] args) {
-        String randomNum = generateRandomNumber();
-        System.out.println(randomNum);
-    }
-
-    public static String generateRandomNumber() {
+    public static String generateRandomNumber(StringBuilder sb) {
         Random random = new Random();
-        StringBuilder sb = new StringBuilder(16);
+//        StringBuilder sb = new StringBuilder(16);
         Set<Character> usedChars = new HashSet<>();
 
         while (sb.length() < 16) {
