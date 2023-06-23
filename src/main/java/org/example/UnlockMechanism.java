@@ -14,7 +14,7 @@ import java.util.Random;
 public class UnlockMechanism {
     static SerialPort mySerialPort;
 
-    static String hashValue = "";
+    static String generatedHashValue = "";
 
 
     public static void main(String[] args) throws InterruptedException, NoSuchAlgorithmException {
@@ -44,17 +44,12 @@ public class UnlockMechanism {
         String mode = "USER_MODE";
         byte[] arr = new byte[16];
         rd.nextBytes(arr);
-//        String encoded16 = Base64.getUrlEncoder().encodeToString(arr);
         String encoded16 = RandomNumberGenerator.generateRandomNumber();
-//        System.out.println("ENCODED"+encoded16);
-//        String encoded16 = "1skHQ73XuZeiDPSo";
-//        String encoded16 = "1234567890abcdef";
 
         String[] randomArray = new String[encoded16.length()];
         for (int i = 0; i < encoded16.length(); i++) {
             randomArray[i] = String.valueOf(encoded16.charAt(i));
         }
-//        System.out.println(randomArray);
 
         switch (mode) {
             case "USER_MODE" -> {
@@ -67,21 +62,21 @@ public class UnlockMechanism {
                 for (int i = 0; i < rtuResponse.length(); i++) {
                     char c = rtuResponse.charAt(i);
                     // Initialize the index to -1 (indicating not found)
-                    String index = new String();
+                    String index;
                     for (int j = 0; j < randomArray.length; j++) {
 
                         if (randomArray[j].equals(String.valueOf(c))) {
-                            if(j==10)
-                                index="A";
-                            else if(j==11)
-                                index="B";
-                            else if(j==12)
+                            if (j == 10)
+                                index = "A";
+                            else if (j == 11)
+                                index = "B";
+                            else if (j == 12)
                                 index = "C";
-                            else if(j==13)
+                            else if (j == 13)
                                 index = "D";
-                            else if(j==14)
-                                index="E";
-                            else if(j==15)
+                            else if (j == 14)
+                                index = "E";
+                            else if (j == 15)
                                 index = "F";
                             else index = String.valueOf(j);
                             decoded.append(index);
@@ -90,27 +85,25 @@ public class UnlockMechanism {
                     }
                 }
                 System.out.println("Decoded" + decoded);
-//                String deviceId = decoded.substring(0, 32).toLowerCase();
-//                deviceId = asciiToHex(deviceId);
-//                String microControllerId = decoded.substring(33, 57).toLowerCase();
-//                hashValue = decoded.substring(62);
-                hashValue = decoded.substring(56);
-                System.out.println(hashValue);
+                String deviceId = decoded.substring(0, 32).toLowerCase();
+                String microControllerId = decoded.substring(32, 56).toLowerCase();
+                String receivedHash = decoded.substring(56).toLowerCase();
                 StringBuilder asciiHashValue = new StringBuilder();
-                for (int i = 0; i < hashValue.length(); i += 2) {
-                    String hexCharacter = hashValue.substring(i, i + 2);
+                for (int i = 0; i < receivedHash.length(); i += 2) {
+                    String hexCharacter = receivedHash.substring(i, i + 2);
                     int asciiValue = Integer.parseInt(hexCharacter, 16);
                     char asciiCharacter = (char) asciiValue;
                     asciiHashValue.append(asciiCharacter);
                 }
+                receivedHash = String.valueOf(asciiHashValue);
 
-                System.out.println(asciiHashValue);
-                hashValue = String.valueOf(asciiHashValue);
-                hashValue = hashValue.trim();
-//                asciiHashValue= new StringBuilder(asciiHashValue.substring(1));
-                String rtcResponse = getCommandFromSerialPort("RTC"+hashValue);
+                generatedHashValue = generateHash(deviceId, microControllerId);
+                generatedHashValue = generatedHashValue.trim();
+                if (generatedHashValue.equals(receivedHash)) {
+                    String rtcResponse = getCommandFromSerialPort("RTC" + generatedHashValue);
+                    System.out.println("RTc Response ----> " + rtcResponse);
+                }
 
-                System.out.println("RTc Response ----> " + rtcResponse);
                 Thread threadSTA = new Thread(() -> {
                     getCommandFromSerialPort("STA");
                 });
@@ -134,20 +127,23 @@ public class UnlockMechanism {
                 System.out.println("DEVICE ID ---->" + deviceId);
                 deviceId = deviceId.substring(7);
 
-                byte[] bytes = getCommandFromSerialPort("GET_MID").getBytes(StandardCharsets.UTF_8);
+                String mId = getCommandFromSerialPort("GET_MID");
+                mId += " ";
+//                mId = mId.substring(10);
+                byte[] bytes = mId.getBytes(StandardCharsets.US_ASCII);
                 StringBuilder hexBuilder = new StringBuilder();
+
                 for (byte b : bytes) {
-                    String hex = String.format("%02X", b);
+                    String hex = String.format("%02x", b);
                     hexBuilder.append(hex);
                 }
-                String mId = hexBuilder.toString();
-                mId = mId.substring(14).toLowerCase();
-//                    hashValue = "1234567890123456789012345678901234567890123456789012345678901234";
-                hashValue = generateHash(asciiToHex(deviceId), mId);
-                sendCommandToSerialPort("SET_HAS" + hashValue);
+                mId = hexBuilder.toString();
+                mId = mId.substring(14);
+                generatedHashValue = generateHash(asciiToHex(deviceId), mId);
+                sendCommandToSerialPort("SET_HAS" + generatedHashValue);
 
-                if (getCommandFromSerialPort("GET_HAS").contains("ACK_HAS" + hashValue)) {
-                    String temp = "ACK_HAS" + hashValue;
+                if (getCommandFromSerialPort("GET_HAS").contains("ACK_HAS" + generatedHashValue)) {
+                    String temp = "ACK_HAS" + generatedHashValue;
                     System.out.println(temp);
                 }
                 arr = new byte[12];
@@ -244,6 +240,7 @@ public class UnlockMechanism {
         }
         return hex.toString();
     }
+
     private static String getCommandFromSerialPort(String command) {
         String s = "";
 
@@ -263,7 +260,7 @@ public class UnlockMechanism {
                     while (mySerialPort.readBytes(readBuffer, readBuffer.length) != 0) {
 
                         s = new String(readBuffer, StandardCharsets.UTF_8);
-                        for(int i=0;i<s.length();i++) {
+                        for (int i = 0; i < s.length(); i++) {
                             String sTemp = String.valueOf(s.charAt(i));
                             switch (sTemp) {
                                 case "2" -> sTemp = "0";
@@ -281,12 +278,10 @@ public class UnlockMechanism {
                             s2.append(sTemp);
                         }
                         System.out.print(s2);
-                        s2= new StringBuilder("");
+                        s2 = new StringBuilder("");
                     }
 //                    System.out.print(s2);
-                }
-
-                else {
+                } else {
                     while (mySerialPort.readBytes(readBuffer, readBuffer.length) != 0) {
                         s = new String(readBuffer, StandardCharsets.UTF_8).trim();
                         System.out.print(s);
